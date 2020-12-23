@@ -66,6 +66,10 @@ namespace cclip_lib
                     {
                         Console.WriteLine(System.Convert.ToBase64String(resultBytes));
                     }
+                    else if (resultData is string[] resultStrArray)
+                    {
+                        Console.WriteLine(string.Join("\n", resultStrArray));
+                    }
                 }
                 else
                 {
@@ -76,6 +80,10 @@ namespace cclip_lib
                     else if (resultData is byte[] resultBytes)
                     {
                         File.WriteAllBytes(outPath, resultBytes);
+                    }
+                    else if (resultData is string[] resultStrArray)
+                    {
+                        File.WriteAllText(outPath, string.Join("\n", resultStrArray));
                     }
                 }
             }
