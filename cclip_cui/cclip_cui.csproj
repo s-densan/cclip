@@ -9,6 +9,7 @@
     <Version>0.1.0</Version>
     <PackageProjectUrl>https://s-densan.hatenablog.com/</PackageProjectUrl>
     <Copyright>電算倶楽部</Copyright>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
