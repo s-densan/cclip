@@ -1,9 +1,13 @@
 ﻿using cclip_lib;
+using HtmlAgilityPack;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -14,6 +18,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Xml;
+using System.Xml.XPath;
 using Path = System.IO.Path;
 
 namespace ccliplog
@@ -36,7 +42,51 @@ namespace ccliplog
             // テキストボックス
             if (textData.Count() == 1)
             {
-                this.PostTextBox.Text = textData.First().Data.ToString();
+                var text = textData.First().Data.ToString()?.Trim() ?? "";
+                var urlPattern = @"https?://[\w/:%#\$&\?\(\)~\.=\+\-]+";
+                if (Regex.IsMatch(text, urlPattern))
+                {
+                    var str = new HttpClient().GetStringAsync(text).Result;
+
+                    var html = new HtmlDocument();
+                    html.LoadHtml(str);
+
+                    var title = html.DocumentNode.SelectSingleNode("/html/head/title").InnerText;
+                    var description =  html.DocumentNode.SelectSingleNode("/html/head/meta[@property=\"og:description\"]").GetAttributeValue("content", "");
+                    this.PostTextBox.Text = @$"
+## {title}
+
+{description}
+
+---
+
+- url : {text}
+";
+
+                    /*
+                    var request = WebRequest.Create(text);
+                    var response = request.GetResponse();
+                    var stream = response.GetResponseStream();
+                    var sr = new StreamReader(stream);
+                    var docNav = new XPathDocument(stream);
+                    var nav = docNav.CreateNavigator();
+                    var strExpression = @"//meta[@description]/text()";
+                    var res = nav.Evaluate(strExpression);
+
+
+                    var xmlDocument = new XmlDocument();
+                    xmlDocument.Load(sr.ReadToEnd());
+                    var nodeList = res;
+
+                    this.PostTextBox.Text = nodeList?.ToString() ?? "";
+                    */
+
+
+                }
+                else
+                {
+                    this.PostTextBox.Text = text;
+                }
             }
             else if (fileData.Count() == 1)
             {
