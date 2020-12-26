@@ -8,18 +8,18 @@ namespace ccliplog
 {
     class JournalMeta
     {
-        public string id { get; set; }
-        public long creationDate { get; set; }
-        public long modifiedDate { get; set; }
-        public string version { get; set; }
-        public string[] tags { get; set; }
-        public bool starred { get; set; }
+        public string id { get; set; } = "";
+        public long creationDate { get; set; } = 0;
+        public long modifiedDate { get; set; } = 0;
+        public string version { get; set; } = "";
+        public string[] tags { get; set; } = Array.Empty<string>();
+        public bool starred { get; set; } = false;
     }
     class JournalContents
     {
-        public string text { get; set; }
-        public int mood { get; set; }
-        public string type { get; set; }
+        public string text { get; set; } = "";
+        public int mood { get; set; } = 0;
+        public string type { get; set; } = "";
     }
     class Journal
     {
