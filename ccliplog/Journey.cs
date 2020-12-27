@@ -33,7 +33,7 @@ namespace ccliplog
     {
         public int id = -1;
         public int? degree_c = null;
-        public string? description;
+        public string? description = null;
         public string icon = "";
         public string place = "";
 

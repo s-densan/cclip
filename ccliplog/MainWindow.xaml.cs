@@ -1,25 +1,12 @@
 ﻿using cclip_lib;
 using HtmlAgilityPack;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using System.Xml;
-using System.Xml.XPath;
 using Path = System.IO.Path;
 
 namespace ccliplog
@@ -38,50 +25,21 @@ namespace ccliplog
             var textData = ClipData.Where(x => x.Format == "Text");
             var imageData = ClipData.Where(x => x.Format == "Bitmap");
             var fileData = ClipData.Where(x => x.Format == "FileDrop");
+            var htmlData = ClipData.Where(x => x.Format == "HTML Format");
 
             // テキストボックス
-            if (textData.Count() == 1)
+            if (htmlData.Count() == 1)
             {
-                var text = textData.First().Data.ToString()?.Trim() ?? "";
+                var text = htmlData?.First().Data?.ToString()?.Trim() ?? "";
+                this.PostTextBox.Text = HtmlToText(text);
+            }
+            else if (textData.Count() == 1)
+            {
+                var text = textData?.First().Data?.ToString()?.Trim() ?? "";
                 var urlPattern = @"https?://[\w/:%#\$&\?\(\)~\.=\+\-]+";
                 if (Regex.IsMatch(text, urlPattern))
                 {
-                    var str = new HttpClient().GetStringAsync(text).Result;
-
-                    var html = new HtmlDocument();
-                    html.LoadHtml(str);
-
-                    var title = html.DocumentNode.SelectSingleNode("/html/head/title").InnerText;
-                    var description =  html.DocumentNode.SelectSingleNode("/html/head/meta[@property=\"og:description\"]").GetAttributeValue("content", "");
-                    this.PostTextBox.Text = @$"
-## {title}
-
-{description}
-
----
-
-- url : {text}
-";
-
-                    /*
-                    var request = WebRequest.Create(text);
-                    var response = request.GetResponse();
-                    var stream = response.GetResponseStream();
-                    var sr = new StreamReader(stream);
-                    var docNav = new XPathDocument(stream);
-                    var nav = docNav.CreateNavigator();
-                    var strExpression = @"//meta[@description]/text()";
-                    var res = nav.Evaluate(strExpression);
-
-
-                    var xmlDocument = new XmlDocument();
-                    xmlDocument.Load(sr.ReadToEnd());
-                    var nodeList = res;
-
-                    this.PostTextBox.Text = nodeList?.ToString() ?? "";
-                    */
-
-
+                    this.PostTextBox.Text = UrlToText(text);
                 }
                 else
                 {
@@ -105,6 +63,67 @@ namespace ccliplog
             else
             {
                 this.AttachFileLabel.Content = "";
+            }
+        }
+        public static string HtmlToText(string htmlData)
+        {
+            var html = new HtmlDocument();
+            // HTML文字列を分析
+            html.LoadHtml(htmlData);
+
+            // 画像パスを収集
+            var imagesXPath = "//img";
+            var imageNodes = html.DocumentNode.SelectNodes(imagesXPath);
+            var images = imageNodes?.Select(x => x.GetAttributeValue("src", ""));
+            var urlText = string.Join(":", htmlData.Split("\r\n")[5].Split(":")[1..]).Split("?")[0];
+            var imageURLs = (images ?? Array.Empty<string>()).Select(x => new Uri(new Uri(urlText), x));
+
+            // 画像をダウンロード
+            foreach (var image in imageURLs.Select((v, i) => (v, i)))
+            {
+                using var wc = new WebClient();
+                var savePath = @$"C:\Users\shimp\Desktop\images\{image.v.LocalPath.Split(@"/").Last()}";
+                if (!Directory.Exists(Path.GetDirectoryName(savePath)))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(savePath)!);
+                }
+                wc.DownloadFile(image.v.AbsoluteUri, savePath);
+            }
+
+            return string.Join("\n", imageURLs); 
+
+        }
+
+        public static string UrlToText(string url)
+        {
+            try
+            {
+                var str = new HttpClient().GetStringAsync(url).Result;
+                var html = new HtmlDocument();
+                html.LoadHtml(str);
+
+                var titleXPath = "/html/head/title";
+                var title = html.DocumentNode.SelectSingleNode(titleXPath).InnerText;
+                var descriptionXPath = "/html/head/meta[@property=\"og:description\" or @property=\"description\"]";
+                var description = html.DocumentNode.SelectSingleNode( descriptionXPath)?.GetAttributeValue("content", "") ?? "";
+                var keyworesXPath = "/html/head/meta[@name=\"keywords\"]";
+                var keywords = html.DocumentNode.SelectSingleNode(keyworesXPath)?.GetAttributeValue("content", "") ?? "";
+                var result = @$"
+## {title}
+
+{description}
+
+---
+
+- url : {url}  
+- keywords : {keywords}
+";
+                return result;
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show(e.ToString());
+                return "";
             }
         }
 
@@ -148,7 +167,7 @@ namespace ccliplog
             var photos = new string[] { };
             if (photosData.Count() == 1)
             {
-                var photo = (byte[])photosData.First();
+                var photo = (byte[]?)photosData.First() ?? Array.Empty<byte>();
                 var photoPath = Path.Combine(dirPath, now.ToString()) + ".png" ;
                 File.WriteAllBytes(photoPath, photo);
                 photos = new string[] { Path.GetFileName(photoPath)};

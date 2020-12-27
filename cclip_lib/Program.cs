@@ -18,10 +18,10 @@ namespace cclip_lib
     public struct ClipData
     {
         public readonly string Format;
-        public readonly object Source;
-        public readonly object Data;
+        public readonly object? Source;
+        public readonly object? Data;
 
-        public ClipData(string format, object source, object data) : this()
+        public ClipData(string format, object? source, object? data) : this()
         {
             this.Format = format;
             this.Source = source;
@@ -51,7 +51,7 @@ namespace cclip_lib
             }
             else
             {
-                resultData = TextMode(clipboardFormat);
+                resultData = TextMode(clipboardFormat) ?? "";
             }
             // 出力
             if (resultData != null)
@@ -117,7 +117,7 @@ namespace cclip_lib
             var json = ToJson(clipData);
             return json;
         }
-        private static object TextMode(string clipboardFormat)
+        private static object? TextMode(string clipboardFormat)
         {
             string[] formatList;
             if (clipboardFormat == "") {
@@ -188,7 +188,7 @@ namespace cclip_lib
         /// </summary>
         /// <param name="sourceData"></param>
         /// <returns></returns>
-        static object ConvertDataForOutput(object sourceData)
+        static object? ConvertDataForOutput(object sourceData)
         {
             static byte[] InteropBitmapToBytes(BitmapSource bmp)
             {
@@ -199,7 +199,7 @@ namespace cclip_lib
                 var result = stream.ToArray();
                 return result;
             }
-            object convertedData = sourceData switch
+            object? convertedData = sourceData switch
             {
                 // Byte列に変換する
                 MemoryStream stream => stream.ToArray(),
@@ -217,7 +217,7 @@ namespace cclip_lib
         /// クリップデータの列をJsonに変換する。
         static string ToJson(IEnumerable<ClipData> data)
         {
-            var clipList = new List<Dictionary<string, object>>();
+            var clipList = new List<Dictionary<string, object?>>();
             var jsonOption = new JsonSerializerOptions()
             {
                 Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
@@ -226,12 +226,12 @@ namespace cclip_lib
 
             foreach (var clip in data)
             {
-                object jsonData = clip.Data switch
+                object? jsonData = clip.Data switch
                 {
                     byte[] bytes => System.Convert.ToBase64String(bytes),
                     _ => clip.Data,
                 };
-                var oneData = new Dictionary<string, object>()
+                var oneData = new Dictionary<string, object?>()
                 {
                     {"format", clip.Format },
                     {"data", jsonData},
@@ -245,8 +245,8 @@ namespace cclip_lib
         struct XmlData
         {
             public string Format;
-            public string Type;
-            public object Data;
+            public string? Type;
+            public object? Data;
         }
         struct XmlData2
         {
