@@ -1,6 +1,8 @@
 ﻿using cclip_lib;
 using HtmlAgilityPack;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -90,7 +92,7 @@ namespace ccliplog
                 wc.DownloadFile(image.v.AbsoluteUri, savePath);
             }
 
-            return string.Join("\n", imageURLs); 
+            return string.Join("\n", imageURLs);
 
         }
 
@@ -105,7 +107,7 @@ namespace ccliplog
                 var titleXPath = "/html/head/title";
                 var title = html.DocumentNode.SelectSingleNode(titleXPath).InnerText;
                 var descriptionXPath = "/html/head/meta[@property=\"og:description\" or @property=\"description\"]";
-                var description = html.DocumentNode.SelectSingleNode( descriptionXPath)?.GetAttributeValue("content", "") ?? "";
+                var description = html.DocumentNode.SelectSingleNode(descriptionXPath)?.GetAttributeValue("content", "") ?? "";
                 var keyworesXPath = "/html/head/meta[@name=\"keywords\"]";
                 var keywords = html.DocumentNode.SelectSingleNode(keyworesXPath)?.GetAttributeValue("content", "") ?? "";
                 var result = @$"
@@ -140,11 +142,70 @@ namespace ccliplog
         {
             var j = new Journal(this.PostTextBox.Text);
             var json = System.Text.Json.JsonSerializer.Serialize(j);
-            MessageBox.Show(json);
 
-            SaveMemorize();
+            // SaveMemorize();
+            SaveJourney();
 
             this.Close();
+        }
+
+        private void SaveJourney()
+        {
+            // ファイル作成
+            var dirPath = Properties.Settings.Default.OutputDirPath;
+            if (dirPath == "")
+            {
+                dirPath = Directory.GetCurrentDirectory();
+            }
+            else if (!Directory.Exists(dirPath))
+            {
+                Directory.CreateDirectory(dirPath);
+            }
+            var now = ToUnixTime(DateTime.Now);
+
+            // データ作成
+            var photosData = this.ClipData.Where(x => x.Format == "Bitmap").Select(x => x.Data);
+            byte[][] photos = { };
+            if (photosData.Count() == 1)
+            {
+                photos = new byte[][] { (byte[]?)photosData.First() ?? Array.Empty<byte>() };
+            }
+            var jny = CreateJourney(now, this.PostTextBox.Text, photos);
+            foreach(var photo in jny.photos.Zip(photos!))
+            {
+                var photoName = photo.First;
+                var photoData = photo.Second;
+                var photoPath = Path.Combine(dirPath, photoName) + ".png" ;
+                File.WriteAllBytes(photoPath, photoData);
+            }
+
+            var filePath = Path.Combine(dirPath, jny.id) + ".json";
+            var jnyJson = System.Text.Json.JsonSerializer.Serialize(jny);
+
+            File.WriteAllText(filePath, jnyJson);
+
+        }
+        static private Journey CreateJourney(long now, string text, IEnumerable<byte[]>? photos)
+        {
+            var id = Journey.CreateID(now);
+            var photoNames = new List<string>();
+
+            if (photos?.Count() == 1)
+            {
+                var photoID = Journey.CreatePhotoID(id);
+                photoNames.Add(photoID + ".png");
+            }
+            var jny = new Journey()
+            {
+                id = id,
+                text = text,
+                preview_text = text,
+                date_journal = now,
+                date_modified = now,
+                photos = photoNames.ToArray(),
+            };
+            return jny;
+
         }
         private void SaveMemorize()
         {
