@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using Path = System.IO.Path;
@@ -17,6 +18,7 @@ namespace ccliplog
     public partial class MainWindow : Window
     {
         public ClipData[] ClipData;
+        public string[] attachmentURLs = Array.Empty<string>();
         public MainWindow()
         {
             InitializeComponent();
@@ -75,22 +77,27 @@ namespace ccliplog
             var imagesXPath = "//img";
             var imageNodes = html.DocumentNode.SelectNodes(imagesXPath);
             var images = imageNodes?.Select(x => x.GetAttributeValue("src", ""));
-            var urlText = string.Join(":", htmlData.Split("\r\n")[5].Split(":")[1..]).Split("?")[0];
+            string getMeta(int n) => string.Join(":", htmlData.Split("\r\n")[n].Split(":")[1..]).Split("?")[0];
+            var startFragment = int.Parse(getMeta(3));
+            var endFragment = int.Parse(getMeta(4));
+            var urlText = getMeta(5);
             var imageURLs = (images ?? Array.Empty<string>()).Select(x => new Uri(new Uri(urlText), x));
 
             // 画像をダウンロード
             foreach (var image in imageURLs.Select((v, i) => (v, i)))
             {
                 using var wc = new WebClient();
-                var savePath = @$"C:\Users\shimp\Desktop\images\{image.v.LocalPath.Split(@"/").Last()}";
+                var savePath = @$"C:\Users\shimp\Desktop\images\{image.v.LocalPath.Split("/").Last()}";
                 if (!Directory.Exists(Path.GetDirectoryName(savePath)))
                 {
-                    Directory.CreateDirectory(Path.GetDirectoryName(savePath)!);
+                    //Directory.CreateDirectory(Path.GetDirectoryName(savePath)!);
                 }
-                wc.DownloadFile(image.v.AbsoluteUri, savePath);
+                // wc.DownloadFile(image.v.AbsoluteUri, savePath);
             }
 
-            return string.Join("\n", imageURLs); 
+            var fragment = Encoding.UTF8.GetString(Encoding.UTF8.GetBytes(htmlData)[startFragment..endFragment]);
+            var result = fragment + "\n\n" + urlText + "\n\n" + string.Join("\n", imageURLs.Select(x => $"- ![{x.LocalPath.Split("/").Last()}]({x.AbsoluteUri})"));
+            return result;
 
         }
 
