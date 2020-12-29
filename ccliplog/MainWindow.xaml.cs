@@ -1,6 +1,8 @@
 ﻿using cclip_lib;
 using HtmlAgilityPack;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -69,6 +71,14 @@ namespace ccliplog
         }
         public static string HtmlToText(string htmlData)
         {
+            var metaDict = new Dictionary<string, string>();
+            foreach (var line in htmlData.Split("\r\n"))
+            {
+                if (line.Contains(":"))
+                {
+                    metaDict[line.Split(":")[0]] = string.Join(":", line.Split(":")[1..]);
+                }
+            }
             var html = new HtmlDocument();
             // HTML文字列を分析
             html.LoadHtml(htmlData);
@@ -77,11 +87,14 @@ namespace ccliplog
             var imagesXPath = "//img";
             var imageNodes = html.DocumentNode.SelectNodes(imagesXPath);
             var images = imageNodes?.Select(x => x.GetAttributeValue("src", ""));
-            string getMeta(int n) => string.Join(":", htmlData.Split("\r\n")[n].Split(":")[1..]).Split("?")[0];
-            var startFragment = int.Parse(getMeta(3));
-            var endFragment = int.Parse(getMeta(4));
-            var urlText = getMeta(5);
-            var imageURLs = (images ?? Array.Empty<string>()).Select(x => new Uri(new Uri(urlText), x));
+            var startFragment = int.Parse(metaDict["StartFragment"]);
+            var endFragment = int.Parse(metaDict["EndFragment"]);
+            var urlText = metaDict.Keys.Contains("SourceURL") ? metaDict["SourceURL"].Split("?")[0] : null;
+            var imageURLs = Array.Empty<Uri>();
+            if (urlText != null)
+            {
+                imageURLs = (images ?? Array.Empty<string>()).Select(x => new Uri(new Uri(urlText), x)).ToArray();
+            }
 
             // 画像をダウンロード
             foreach (var image in imageURLs.Select((v, i) => (v, i)))
@@ -112,7 +125,7 @@ namespace ccliplog
                 var titleXPath = "/html/head/title";
                 var title = html.DocumentNode.SelectSingleNode(titleXPath).InnerText;
                 var descriptionXPath = "/html/head/meta[@property=\"og:description\" or @property=\"description\"]";
-                var description = html.DocumentNode.SelectSingleNode( descriptionXPath)?.GetAttributeValue("content", "") ?? "";
+                var description = html.DocumentNode.SelectSingleNode(descriptionXPath)?.GetAttributeValue("content", "") ?? "";
                 var keyworesXPath = "/html/head/meta[@name=\"keywords\"]";
                 var keywords = html.DocumentNode.SelectSingleNode(keyworesXPath)?.GetAttributeValue("content", "") ?? "";
                 var result = @$"
@@ -147,11 +160,117 @@ namespace ccliplog
         {
             var j = new Journal(this.PostTextBox.Text);
             var json = System.Text.Json.JsonSerializer.Serialize(j);
-            MessageBox.Show(json);
 
-            SaveMemorize();
+            // SaveMemorize();
+            SaveJourney();
 
             this.Close();
+        }
+        private void AddClipboardButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.ClipData = Program.GetClipData();
+            var textData = ClipData.Where(x => x.Format == "Text");
+            var imageData = ClipData.Where(x => x.Format == "Bitmap");
+            var fileData = ClipData.Where(x => x.Format == "FileDrop");
+            var htmlData = ClipData.Where(x => x.Format == "HTML Format");
+
+            // テキストボックス
+            if (htmlData.Count() == 1)
+            {
+                var text = htmlData?.First().Data?.ToString()?.Trim() ?? "";
+                this.PostTextBox.Text += HtmlToText(text);
+            }
+            else if (textData.Count() == 1)
+            {
+                var text = textData?.First().Data?.ToString()?.Trim() ?? "";
+                var urlPattern = @"https?://[\w/:%#\$&\?\(\)~\.=\+\-]+";
+                if (Regex.IsMatch(text, urlPattern))
+                {
+                    this.PostTextBox.Text += UrlToText(text);
+                }
+                else
+                {
+                    this.PostTextBox.Text += text;
+                }
+            }
+            else if (fileData.Count() == 1)
+            {
+                this.PostTextBox.Text += string.Join("\n", fileData.First().Data as string[] ?? Array.Empty<string>());
+            }
+            else
+            {
+                // do nothing
+            }
+
+            // 画像の添付
+            if (ClipData.Select(x => x.Format).Contains("Bitmap"))
+            {
+                this.AttachFileLabel.Content = "画像の添付ファイルがあります。";
+            }
+            else
+            {
+                this.AttachFileLabel.Content = "";
+            }
+            
+        }
+
+        private void SaveJourney()
+        {
+            // ファイル作成
+            var dirPath = Properties.Settings.Default.OutputDirPath;
+            if (dirPath == "")
+            {
+                dirPath = Directory.GetCurrentDirectory();
+            }
+            else if (!Directory.Exists(dirPath))
+            {
+                Directory.CreateDirectory(dirPath);
+            }
+            var now = ToUnixTime(DateTime.Now);
+
+            // データ作成
+            var photosData = this.ClipData.Where(x => x.Format == "Bitmap").Select(x => x.Data);
+            byte[][] photos = { };
+            if (photosData.Count() == 1)
+            {
+                photos = new byte[][] { (byte[]?)photosData.First() ?? Array.Empty<byte>() };
+            }
+            var jny = CreateJourney(now, this.PostTextBox.Text, photos);
+            foreach(var photo in jny.photos.Zip(photos!))
+            {
+                var photoName = photo.First;
+                var photoData = photo.Second;
+                var photoPath = Path.Combine(dirPath, photoName) + ".png" ;
+                File.WriteAllBytes(photoPath, photoData);
+            }
+
+            var filePath = Path.Combine(dirPath, jny.id) + ".json";
+            var jnyJson = System.Text.Json.JsonSerializer.Serialize(jny);
+
+            File.WriteAllText(filePath, jnyJson);
+
+        }
+        static private Journey CreateJourney(long now, string text, IEnumerable<byte[]>? photos)
+        {
+            var id = Journey.CreateID(now);
+            var photoNames = new List<string>();
+
+            if (photos?.Count() == 1)
+            {
+                var photoID = Journey.CreatePhotoID(id);
+                photoNames.Add(photoID + ".png");
+            }
+            var jny = new Journey()
+            {
+                id = id,
+                text = text,
+                preview_text = text,
+                date_journal = now,
+                date_modified = now,
+                photos = photoNames.ToArray(),
+            };
+            return jny;
+
         }
         private void SaveMemorize()
         {
