@@ -51,10 +51,18 @@ namespace ccliplog
             }
             return result + rand.Next(16).ToString("X");
         }
-        public static string CreatePhotoID(string journeyID)
+        public static string CreatePhotoID(string journeyID, int? no = null)
         {
-            var photoID = journeyID + "-" + GetRandomHexNumber(16).ToLower();
-            return photoID;
+            if (no.HasValue)
+            {
+                var photoID = $"{journeyID}-{no:00}{GetRandomHexNumber(14).ToLower()}";
+                return photoID;
+            }
+            else
+            {
+                var photoID = $"{journeyID}-{GetRandomHexNumber(16).ToLower()}";
+                return photoID;
+            }
         }
     }
     class JourneyWeather

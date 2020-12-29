@@ -14,6 +14,13 @@ using System.Xml.Serialization;
 
 namespace cclip_lib
 {
+    public enum ImageFormat
+    {
+        Png,
+        Bmp,
+        Jpeg,
+        Gif,
+    }
 
     public struct ClipData
     {
@@ -31,7 +38,7 @@ namespace cclip_lib
 
     public class Program
     {
-        public static void Main(bool list, bool all, bool outputJson, string clipboardFormat, string output)
+        public static void Main(bool list, bool all, bool outputJson, string clipboardFormat, string output, string imageFormatStr )
         {
             // 出力パス
             var outPath = output;
@@ -39,19 +46,29 @@ namespace cclip_lib
             {
                 Path.Combine(Directory.GetCurrentDirectory(), output);
             }
+            var imgFmt = imageFormatStr.ToLower() switch
+            {
+                "bitmap" => ImageFormat.Bmp,
+                "bmp" => ImageFormat.Bmp,
+                "png" => ImageFormat.Png,
+                "jpg" => ImageFormat.Jpeg,
+                "jpeg" => ImageFormat.Jpeg,
+                "gif" => ImageFormat.Gif,
+                _ => ImageFormat.Png,
+            };
             // 出力文字列の取得
             object resultData;
             if (list)
             {
-                resultData = FormatMode();
+                resultData = FormatMode(imgFmt);
             }
             else if(outputJson)
             {
-                resultData = JsonMode(!all);
+                resultData = JsonMode(!all, imgFmt);
             }
             else
             {
-                resultData = TextMode(clipboardFormat) ?? "";
+                resultData = TextMode(clipboardFormat, imgFmt) ?? "";
             }
             // 出力
             if (resultData != null)
@@ -68,7 +85,7 @@ namespace cclip_lib
                     }
                     else if (resultData is byte[] resultBytes)
                     {
-                        Console.WriteLine(System.Convert.ToBase64String(resultBytes));
+                        Console.WriteLine(Convert.ToBase64String(resultBytes));
                     }
                 }
                 else
@@ -89,14 +106,19 @@ namespace cclip_lib
             }
 
         }
-        private static string FormatMode()
+        private static string FormatMode(ImageFormat imgFmt)
         {
+            var clipData = GetClipData(imgFmt);
+            var formatsStr = string.Join("\n", clipData.Select(d => d.Format));
+            return formatsStr;
+            /*
             var dataObj = Clipboard.GetDataObject();
             var formats = dataObj.GetFormats();
             var formatsStr = string.Join("\n", formats);
             return formatsStr;
+            */
         }
-        private static string JsonMode(bool onFilter)
+        private static string JsonMode(bool onFilter, ImageFormat imgFmt)
         {
             var normalFormats = new string[] {
                 "Text",
@@ -108,16 +130,16 @@ namespace cclip_lib
             IEnumerable<ClipData> clipData;
             if (onFilter)
             {
-                clipData = GetClipData().Where(x => normalFormats.Contains(x.Format));
+                clipData = GetClipData(imgFmt).Where(x => normalFormats.Contains(x.Format));
             }
             else
             {
-                clipData = GetClipData();
+                clipData = GetClipData(imgFmt);
             }
             var json = ToJson(clipData);
             return json;
         }
-        private static object? TextMode(string clipboardFormat)
+        private static object? TextMode(string clipboardFormat, ImageFormat imgFmt)
         {
             string[] formatList;
             if (clipboardFormat == "") {
@@ -138,7 +160,7 @@ namespace cclip_lib
                     clipboardFormat.ToLower(),
                 };
             }
-            var allClipData = GetClipData();
+            var allClipData = GetClipData(imgFmt);
             IEnumerable<ClipData> clipData = allClipData.Where(x => formatList.Contains(x.Format.ToLower()));
             if (clipData.ToArray().Length > 0)
             {
@@ -153,17 +175,18 @@ namespace cclip_lib
         /// クリップボードからデータを取得し、一般的な形式に直してリターンする。
         /// </summary>
         /// <returns></returns>
-        public static ClipData[] GetClipData()
+        public static ClipData[] GetClipData(ImageFormat imgFmt)
         {
             var dataObj = Clipboard.GetDataObject();
             var formats = dataObj.GetFormats();
-            static ClipData getData(string f)
+            ClipData getData(string f)
             {
                 try {
                     object data = Clipboard.GetData(f);
                     if (data != null)
                     {
-                        return new ClipData(f, data, ConvertDataForOutput(data));
+                        Clipboard.GetImage();
+                        return new ClipData(f, data, ConvertDataForOutput(data, imgFmt));
                     }
                     else
                     {
@@ -175,7 +198,7 @@ namespace cclip_lib
                     return new ClipData(f, null, null);
                 }
             }
-            var clipDict = formats.Select((f) => getData(f));
+            var clipDict = formats.Select((f) => getData(f)).Where(f => f.Source != null);
             return clipDict.ToArray();
 
         }
@@ -188,12 +211,19 @@ namespace cclip_lib
         /// </summary>
         /// <param name="sourceData"></param>
         /// <returns></returns>
-        static object? ConvertDataForOutput(object sourceData)
+        static object? ConvertDataForOutput(object sourceData, ImageFormat imgFmt)
         {
-            static byte[] InteropBitmapToBytes(BitmapSource bmp)
+            static byte[] InteropBitmapToBytes(BitmapSource bmp, ImageFormat imgFmt)
             {
                 using var stream = new MemoryStream();
-                var encoder = new PngBitmapEncoder();
+                BitmapEncoder encoder = imgFmt switch
+                {
+                    ImageFormat.Bmp => new BmpBitmapEncoder(),
+                    ImageFormat.Png => new PngBitmapEncoder(),
+                    ImageFormat.Jpeg => new JpegBitmapEncoder(),
+                    ImageFormat.Gif => new GifBitmapEncoder(),
+                    _ => throw new NotImplementedException(),
+                };
                 encoder.Frames.Add(BitmapFrame.Create(bmp));
                 encoder.Save(stream);
                 var result = stream.ToArray();
@@ -204,7 +234,7 @@ namespace cclip_lib
                 // Byte列に変換する
                 MemoryStream stream => stream.ToArray(),
                 // Byte列に変換する
-                InteropBitmap bmp => InteropBitmapToBytes(bmp),
+                InteropBitmap bmp => InteropBitmapToBytes(bmp, imgFmt),
                 // 文字列に変換する
                 string str => str,
                 // 文字列の配列に変換する

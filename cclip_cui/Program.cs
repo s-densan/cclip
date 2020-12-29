@@ -20,6 +20,8 @@ namespace cclip_cui
             var list = false;
             // 単体出力の場合のクリップボード取得元タイプ
             var clipboardFormat = "Text";
+            // 画像出力フォーマット
+            var imageFormat = "Png";
             // json形式で出力するか
             var outputJson = false;
 
@@ -51,6 +53,12 @@ namespace cclip_cui
                                 clipboardFormat = queue.Dequeue();
                             }
                             break;
+                        case "-i":
+                            if (queue.Count > 0)
+                            {
+                                imageFormat = queue.Dequeue();
+                            }
+                            break;
                         default:
                             // do nothing
                             break;
@@ -71,10 +79,22 @@ namespace cclip_cui
                             outputJson = true;
                             break;
                         case "--output":
-                            output = queue.Dequeue();
+                            if (queue.Count > 0)
+                            {
+                                output = queue.Dequeue();
+                            }
                             break;
                         case "--format":
-                            clipboardFormat = queue.Dequeue();
+                            if (queue.Count > 0)
+                            {
+                                clipboardFormat = queue.Dequeue();
+                            }
+                            break;
+                        case "--image":
+                            if (queue.Count > 0)
+                            {
+                                imageFormat = queue.Dequeue();
+                            }
                             break;
                         default:
                             // do nothing
@@ -84,7 +104,7 @@ namespace cclip_cui
                 }
             }
            
-            cclip_lib.Program.Main(list, all, outputJson, clipboardFormat, output);
+            cclip_lib.Program.Main(list, all, outputJson, clipboardFormat, output, imageFormat);
         }
     }
 }

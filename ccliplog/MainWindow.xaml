@@ -8,7 +8,8 @@
         Title="MainWindow" Height="450" Width="800">
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="577*"/>
+            <ColumnDefinition Width="462*"/>
+            <ColumnDefinition Width="115*"/>
             <ColumnDefinition Width="111*"/>
             <ColumnDefinition Width="112"/>
         </Grid.ColumnDefinitions>
@@ -16,10 +17,11 @@
             <RowDefinition/>
             <RowDefinition Height="51.04"/>
         </Grid.RowDefinitions>
-        <Button x:Name="PostButton" Content="Post" Margin="10,10,10,10" Grid.Row="1" Grid.Column="2" Click="PostButton_Click"/>
-        <TextBox x:Name="PostTextBox" Margin="10,10,10,11" Text="TextBox" TextWrapping="Wrap" Grid.ColumnSpan="3" AcceptsReturn="True"/>
-        <Label x:Name="AttachFileLabel" Content="Label" HorizontalAlignment="Left" Margin="10,10,0,10" Grid.Row="1" RenderTransformOrigin="1.053,0.392" Width="38"/>
-        <Button x:Name="AddClipboardButton" Content="Add Clipboard" Margin="10,7,10,13" Grid.Row="1" Click="AddClipboardButton_Click" Grid.Column="1"/>
+        <Button x:Name="PostButton" Content="Post" Margin="10,10,10,10" Grid.Row="1" Grid.Column="3" Click="PostButton_Click"/>
+        <TextBox x:Name="PostTextBox" Margin="10,10,10,11" TextWrapping="Wrap" Grid.ColumnSpan="4" AcceptsReturn="True"/>
+        <Label x:Name="AttachFileLabel" Content="Label" HorizontalAlignment="Left" Margin="10,10,0,10" Grid.Row="1" RenderTransformOrigin="1.053,0.392" Width="390"/>
+        <Button x:Name="AddClipboardButton" Content="Add Clipboard" Margin="10,7,10,13" Grid.Row="1" Click="AddClipboardButton_Click" Grid.Column="2"/>
+        <Button x:Name="OpenConfigFileButton" Content="Open Config File" Margin="10,7,10,13" Grid.Row="1" Click="OpenConfigFileButton_Click" Grid.Column="1"/>
 
     </Grid>
 </Window>
