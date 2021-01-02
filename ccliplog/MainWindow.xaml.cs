@@ -120,7 +120,14 @@ namespace ccliplog
                     {
                         result += $"- keywords : {keywords}\n";
                     }
-                    return (result, new string[] { imageUrl });
+                    if(imageUrl != "")
+                    {
+                        return (result, new string[] { imageUrl });
+                    }
+                    else
+                    {
+                        return (result, new string[] { });
+                    }
                 }
             }
             catch (Exception e)
@@ -224,7 +231,13 @@ namespace ccliplog
             // 変数定義
             // ファイル作成
             var dirPath = Properties.Settings.Default.OutputDirPath;
-            if (dirPath == "")
+            var argCount = Environment.GetCommandLineArgs().Length;
+            if(argCount > 0
+                && Directory.Exists(Environment.GetCommandLineArgs()[argCount - 1]))
+            {
+                dirPath = Environment.GetCommandLineArgs()[1];
+            }
+            else if (dirPath == "")
             {
                 dirPath = Directory.GetCurrentDirectory();
             }
@@ -234,20 +247,23 @@ namespace ccliplog
             }
             var now = ToUnixTime(DateTime.Now);
             // URLからファイルダウンロード
+
+            var jny = CreateJourney(now, this.PostTextBox.Text, this.attachmentFileData);
+
             var downloadFilePathes = new List<string>();
-            foreach(var url in this.attachmentURLs)
+            foreach (var (url, index) in this.attachmentURLs.Select((v, i) => (v, i)))
             {
                 var client = new WebClient();
                 var urlObj = new Uri(url);
                 // var urlFileName = urlObj.Segments[^1];
-                var urlFileName = Journey.CreatePhotoID();
+                var urlFileName = jny.CreatePhotoID(index);
                 var savePath = Path.Join(dirPath, urlFileName);
                 client.DownloadFile(url, savePath);
                 downloadFilePathes.Add(savePath);
             }
+            jny.photos = jny.photos.ToList().Concat(downloadFilePathes.ToArray()).ToArray();
 
-            var jny = CreateJourney(now, this.PostTextBox.Text, this.attachmentFileData, downloadFilePathes);
-            foreach(var (photoName, photoData) in jny.photos.Zip(this.attachmentFileData!))
+            foreach (var (photoName, photoData) in jny.photos.Zip(this.attachmentFileData!))
             {
                 var photoPath = Path.Combine(dirPath, photoName);
                 File.WriteAllBytes(photoPath, photoData);
@@ -259,7 +275,7 @@ namespace ccliplog
             File.WriteAllText(filePath, jnyJson);
 
         }
-        static private Journey CreateJourney(long now, string text, IEnumerable<byte[]>? photos, IEnumerable<string>? pathes)
+        static private Journey CreateJourney(long now, string text, IEnumerable<byte[]>? photos, IEnumerable<string>? pathes = null)
         {
             var id = Journey.CreateID(now);
             var photoNames = new List<string>();

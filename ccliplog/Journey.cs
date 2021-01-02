@@ -51,6 +51,10 @@ namespace ccliplog
             }
             return result + rand.Next(16).ToString("X");
         }
+        public string CreatePhotoID(int? no = null)
+        {
+            return CreatePhotoID(this.id, no);
+        }
         public static string CreatePhotoID(string journeyID, int? no = null)
         {
             if (no.HasValue)
