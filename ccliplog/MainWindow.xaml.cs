@@ -126,7 +126,7 @@ namespace ccliplog
                     }
                     else
                     {
-                        return (result, new string[] { });
+                        return (result, Array.Empty<string>());
                     }
                 }
             }
@@ -232,10 +232,13 @@ namespace ccliplog
             // ファイル作成
             var dirPath = Properties.Settings.Default.OutputDirPath;
             var argCount = Environment.GetCommandLineArgs().Length;
-            if(argCount > 0
-                && Directory.Exists(Environment.GetCommandLineArgs()[argCount - 1]))
-            {
-                dirPath = Environment.GetCommandLineArgs()[1];
+            if(argCount > 0) { 
+                dirPath = Environment.GetCommandLineArgs()[argCount - 1];
+                if (!Directory.Exists(dirPath))
+                {
+                    Directory.CreateDirectory(dirPath);
+
+                }
             }
             else if (dirPath == "")
             {
@@ -256,10 +259,18 @@ namespace ccliplog
                 var client = new WebClient();
                 var urlObj = new Uri(url);
                 // var urlFileName = urlObj.Segments[^1];
-                var urlFileName = jny.CreatePhotoID(index);
+                var urlFileName = jny.CreatePhotoID(index)+System.IO.Path.GetExtension(url.Split("/").Last());
                 var savePath = Path.Join(dirPath, urlFileName);
-                client.DownloadFile(url, savePath);
-                downloadFilePathes.Add(savePath);
+                try
+                {
+                    client.DownloadFile(url, savePath);
+                    downloadFilePathes.Add(urlFileName);
+                }
+                catch (Exception e)
+                {
+                    MessageBox.Show($"ダウンロードできませんでした。\n{e}");
+
+                }
             }
             jny.photos = jny.photos.ToList().Concat(downloadFilePathes.ToArray()).ToArray();
 
