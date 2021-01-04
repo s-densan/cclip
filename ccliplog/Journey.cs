@@ -26,7 +26,7 @@ namespace ccliplog
         public string music_artist { get; set; } = "";
         public string[] photos { get; set; } = Array.Empty<string>();
         public JourneyWeather weather { get; set; } = new JourneyWeather();
-        public string[] tags { get; set; } = new string[] {"ccliplog" };
+        public string[] tags { get; set; } = new string[] { };
         public string type { get; set; } = "markdown";
 
         /// <summary>

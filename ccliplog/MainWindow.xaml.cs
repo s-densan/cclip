@@ -10,7 +10,10 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Text.Unicode;
 using System.Windows;
 using Path = System.IO.Path;
 
@@ -148,9 +151,6 @@ namespace ccliplog
         }
         private void PostButton_Click(object sender, RoutedEventArgs e)
         {
-            var j = new Journal(this.PostTextBox.Text);
-            var json = System.Text.Json.JsonSerializer.Serialize(j);
-
             // SaveMemorize();
             SaveJourney();
 
@@ -167,6 +167,7 @@ namespace ccliplog
             var imageData = ClipData.Where(x => x.Format == "Bitmap");
             var fileData = ClipData.Where(x => x.Format == "FileDrop");
             var htmlData = ClipData.Where(x => x.Format == "HTML Format");
+            this.TagsLabel.Content = $"ccliplog, {Environment.MachineName}";
 
             // テキストボックス
             if (htmlData.Count() == 1)
@@ -252,6 +253,7 @@ namespace ccliplog
             // URLからファイルダウンロード
 
             var jny = CreateJourney(now, this.PostTextBox.Text, this.attachmentFileData);
+            jny.tags = TagsLabel.Content.ToString()?.Split(",").Select(x => x.Trim()).ToArray() ?? Array.Empty<string>();
 
             var downloadFilePathes = new List<string>();
             foreach (var (url, index) in this.attachmentURLs.Select((v, i) => (v, i)))
@@ -280,8 +282,13 @@ namespace ccliplog
                 File.WriteAllBytes(photoPath, photoData);
             }
 
+            var jsonOption = new JsonSerializerOptions()
+            {
+                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+                WriteIndented = true,
+            };
             var filePath = Path.Combine(dirPath, jny.id) + ".json";
-            var jnyJson = System.Text.Json.JsonSerializer.Serialize(jny);
+            var jnyJson = System.Text.Json.JsonSerializer.Serialize(jny, jsonOption);
 
             File.WriteAllText(filePath, jnyJson);
 
@@ -347,7 +354,12 @@ namespace ccliplog
                 photos = photos,
 
             };
-            var memoJson = System.Text.Json.JsonSerializer.Serialize(memo);
+            var jsonOption = new JsonSerializerOptions()
+            {
+                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+                WriteIndented = true,
+            };
+            var memoJson = System.Text.Json.JsonSerializer.Serialize(memo, jsonOption);
 
             File.WriteAllText(filePath, memoJson);
 
