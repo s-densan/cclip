@@ -261,7 +261,7 @@ namespace ccliplog
                 var client = new WebClient();
                 var urlObj = new Uri(url);
                 // var urlFileName = urlObj.Segments[^1];
-                var urlFileName = jny.CreatePhotoID(index)+System.IO.Path.GetExtension(url.Split("/").Last());
+                var urlFileName = jny.CreatePhotoID(index) + System.IO.Path.GetExtension(urlObj.AbsolutePath.Split("/").Last());
                 var savePath = Path.Join(dirPath, urlFileName);
                 try
                 {
