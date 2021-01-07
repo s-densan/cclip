@@ -26,6 +26,9 @@ namespace ccliplog
     {
         public const ImageFormat DefaultImageFormat = ImageFormat.Bmp;
         public const string DefaultImageExt = ".bmp";
+        public readonly string[] imageExtensions = new string[] { ".bmp", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif" };
+        public readonly string[] audioExtensions = new string[] { ".mp3", ".wav", ".acc", ".m4a", ".ogg", ".wma" };
+        public readonly string[] videoExtensions = new string[] { ".mp4", ".mkv", ".wmv", ".avi", ".mpg", ".mpeg" };
         public List<string> attachmentURLs = new List<string>();
         public List<string> attachmentFilePathes = new List<string>();
         public List<byte[]> attachmentFileData = new List<byte[]>();
@@ -85,52 +88,53 @@ namespace ccliplog
         {
             try
             {
-                using (var wc = new System.Net.WebClient())
+                using var wc = new WebClient();
+                wc.Encoding = Encoding.UTF8;
+                wc.Headers.Add("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3");
+                var bytes = wc.DownloadData(url);
+                var enc = Utils.GetCode(bytes) ?? Encoding.UTF8;
+                var str = enc.GetString(bytes);
+
+                // var httpClient = new HttpClient();
+                // var task = httpClient.GetStringAsync(url);
+                // var str = task.Result;
+                var html = new HtmlDocument();
+                html.LoadHtml(str);
+
+                var titleXPath = "(/html/head|/html/body)/title";
+                var title = html.DocumentNode.SelectSingleNode(titleXPath)?.InnerText.Replace("\r", "").Replace("\n", "");
+                var descriptionXPath = "(/html/head|/html/body)/meta[@property=\"og:description\" or @property=\"description\"]";
+                var description = html.DocumentNode.SelectSingleNode(descriptionXPath)?.GetAttributeValue("content", "") ?? "";
+                var keyworesXPath = "(/html/head|/html/body)/meta[@name=\"keywords\"]";
+                var keywords = html.DocumentNode.SelectSingleNode(keyworesXPath)?.GetAttributeValue("content", "") ?? "";
+                var imageUrlXPath = "(/html/head|/html/body)/meta[@property=\"og:image\"]";
+                var imageUrl = html.DocumentNode.SelectSingleNode(imageUrlXPath)?.GetAttributeValue("content", "") ?? "";
+                var result = "";
+                result += $"## {title}\n\n";
+                if (description != "")
                 {
-                    wc.Headers.Add("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3");
-                    var str = wc.DownloadString(url);
-
-                    // var httpClient = new HttpClient();
-                    // var task = httpClient.GetStringAsync(url);
-                    // var str = task.Result;
-                    var html = new HtmlDocument();
-                    html.LoadHtml(str);
-
-                    var titleXPath = "(/html/head|/html/body)/title";
-                    var title = html.DocumentNode.SelectSingleNode(titleXPath)?.InnerText.Replace("\r", "").Replace("\n", "");
-                    var descriptionXPath = "(/html/head|/html/body)/meta[@property=\"og:description\" or @property=\"description\"]";
-                    var description = html.DocumentNode.SelectSingleNode(descriptionXPath)?.GetAttributeValue("content", "") ?? "";
-                    var keyworesXPath = "(/html/head|/html/body)/meta[@name=\"keywords\"]";
-                    var keywords = html.DocumentNode.SelectSingleNode(keyworesXPath)?.GetAttributeValue("content", "") ?? "";
-                    var imageUrlXPath = "(/html/head|/html/body)/meta[@property=\"og:image\"]";
-                    var imageUrl = html.DocumentNode.SelectSingleNode(imageUrlXPath)?.GetAttributeValue("content", "") ?? "";
-                    var result = "";
-                    result += $"## {title}\n\n";
-                    if (description != "")
-                    {
-                        result += $"{description}\n\n";
-                    }
-                    if (imageUrl != "")
-                    {
-                        result += $"![]({imageUrl})\n\n";
-                    }
-                    result += $"---\n\n";
-                    if (url != "")
-                    {
-                        result += $"- url : {url}\n";
-                    }
-                    if (keywords != "")
-                    {
-                        result += $"- keywords : {keywords}\n";
-                    }
-                    if(imageUrl != "")
-                    {
-                        return (result, new string[] { imageUrl });
-                    }
-                    else
-                    {
-                        return (result, Array.Empty<string>());
-                    }
+                    result += $"{description}\n\n";
+                }
+                if (imageUrl != "")
+                {
+                    result += $"![]({imageUrl})\n\n";
+                }
+                result += $"---\n\n";
+                if (url != "")
+                {
+                    result += $"- url : {url}\n";
+                }
+                if (keywords != "")
+                {
+                    result += $"- keywords : {keywords}\n";
+                }
+                if (imageUrl != "")
+                {
+                    return (result, new string[] { imageUrl });
+                }
+                else
+                {
+                    return (result, Array.Empty<string>());
                 }
             }
             catch (Exception e)
@@ -167,7 +171,7 @@ namespace ccliplog
             var imageData = ClipData.Where(x => x.Format == "Bitmap");
             var fileData = ClipData.Where(x => x.Format == "FileDrop");
             var htmlData = ClipData.Where(x => x.Format == "HTML Format");
-            this.TagsLabel.Content = $"ccliplog, {Environment.MachineName}";
+            this.TagsTextBox.Text = $"ccliplog, {Environment.MachineName}";
 
             // テキストボックス
             if (htmlData.Count() == 1)
@@ -199,7 +203,16 @@ namespace ccliplog
             }
             else if (fileData.Count() == 1)
             {
-                this.PostTextBox.Text += string.Join("\n", fileData.First().Data as string[] ?? Array.Empty<string>());
+                var files = fileData.First().Data as string[] ?? Array.Empty<string>();
+                this.PostTextBox.Text += string.Join("\n", files);
+                foreach(var file in files)
+                {
+                    if (this.imageExtensions.Contains(Path.GetExtension(file).ToLower()))
+                    {
+                        // 画像ファイルの場合
+                        this.attachmentFilePathes.Add(file);
+                    }
+                }
             }
             else
             {
@@ -233,6 +246,7 @@ namespace ccliplog
             // ファイル作成
             var dirPath = Properties.Settings.Default.OutputDirPath;
             var argCount = Environment.GetCommandLineArgs().Length;
+            var photoNo = 1;
             if(argCount > 0) { 
                 dirPath = Environment.GetCommandLineArgs()[argCount - 1];
                 if (!Directory.Exists(dirPath))
@@ -253,20 +267,22 @@ namespace ccliplog
             // URLからファイルダウンロード
 
             var jny = CreateJourney(now, this.PostTextBox.Text, this.attachmentFileData);
-            jny.tags = TagsLabel.Content.ToString()?.Split(",").Select(x => x.Trim()).ToArray() ?? Array.Empty<string>();
+            jny.tags = TagsTextBox.Text.ToString()?.Split(",").Select(x => x.Trim()).ToArray() ?? Array.Empty<string>();
 
+            // ダウンロードファイルの処理
             var downloadFilePathes = new List<string>();
             foreach (var (url, index) in this.attachmentURLs.Select((v, i) => (v, i)))
             {
                 var client = new WebClient();
                 var urlObj = new Uri(url);
                 // var urlFileName = urlObj.Segments[^1];
-                var urlFileName = jny.CreatePhotoID(index) + System.IO.Path.GetExtension(urlObj.AbsolutePath.Split("/").Last());
+                var urlFileName = jny.CreatePhotoID(photoNo) + System.IO.Path.GetExtension(urlObj.AbsolutePath.Split("/").Last());
                 var savePath = Path.Join(dirPath, urlFileName);
                 try
                 {
                     client.DownloadFile(url, savePath);
                     downloadFilePathes.Add(urlFileName);
+                    photoNo += 1;
                 }
                 catch (Exception e)
                 {
@@ -275,6 +291,16 @@ namespace ccliplog
                 }
             }
             jny.photos = jny.photos.ToList().Concat(downloadFilePathes.ToArray()).ToArray();
+
+            // 添付ファイルの処理
+            foreach (var attachmentFilePath in this.attachmentFilePathes)
+            {
+                var filename = jny.CreatePhotoID(photoNo) + Path.GetExtension(attachmentFilePath);
+                var savePath = Path.Join(dirPath, filename);
+                File.Copy(attachmentFilePath, savePath);
+                jny.photos = jny.photos.ToList().Append(filename).ToArray();
+                photoNo += 1;
+            }
 
             foreach (var (photoName, photoData) in jny.photos.Zip(this.attachmentFileData!))
             {
