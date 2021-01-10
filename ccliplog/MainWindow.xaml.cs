@@ -53,34 +53,51 @@ namespace ccliplog
             // HTML文字列を分析
             html.LoadHtml(htmlData);
 
-            // 画像パスを収集
-            var imagesXPath = "//img";
-            var imageNodes = html.DocumentNode.SelectNodes(imagesXPath);
-            var images = imageNodes?.Select(x => x.GetAttributeValue("src", ""));
-            var startFragment = int.Parse(metaDict["StartFragment"]);
-            var endFragment = int.Parse(metaDict["EndFragment"]);
-            var urlText = metaDict.Keys.Contains("SourceURL") ? metaDict["SourceURL"].Split("?")[0] : null;
-            var imageURLs = Array.Empty<Uri>();
-            if (urlText != null)
+            if(html.DocumentNode.SelectNodes("/html/body/*").Count == 1 &&
+               html.DocumentNode.SelectSingleNode("/html/body/*").Name.ToLower() == "img")
             {
-                imageURLs = (images ?? Array.Empty<string>()).Select(x => new Uri(new Uri(urlText), x)).ToArray();
-            }
+                // 画像のみの場合
+                var imageUrl = html.DocumentNode.SelectSingleNode("//img").GetAttributeValue("src", "");
+                var alt = html.DocumentNode.SelectSingleNode("//img").GetAttributeValue("alt", "");
+                var altText = alt != "" ? alt + " : " : "";
+                var text = $"- {altText}{imageUrl}\n";
 
-            // 画像をダウンロード
-            foreach (var image in imageURLs.Select((v, i) => (v, i)))
+                return (text, Array.Empty<string>());
+            }
+            else
             {
-                using var wc = new WebClient();
-                var savePath = @$"C:\Users\shimp\Desktop\images\{image.v.LocalPath.Split("/").Last()}";
-                if (!Directory.Exists(Path.GetDirectoryName(savePath)))
+                // 画像以外の場合
+                // 画像パスを収集
+                var imagesXPath = "//img";
+                var imageNodes = html.DocumentNode.SelectNodes(imagesXPath);
+                var images = imageNodes?.Select(x => (src: x.GetAttributeValue("src", ""), alt: x.GetAttributeValue("alt", "")));
+                var startFragment = int.Parse(metaDict["StartFragment"]);
+                var endFragment = int.Parse(metaDict["EndFragment"]);
+                var urlText = metaDict.Keys.Contains("SourceURL") ? metaDict["SourceURL"].Split("?")[0] : null;
+                var imageURLs = Array.Empty<(Uri uri, string alt)>();
+                if (urlText != null)
                 {
-                    //Directory.CreateDirectory(Path.GetDirectoryName(savePath)!);
+                    imageURLs = (images ?? Array.Empty<(string src, string alt)>()).Select(x => (uri: new Uri(new Uri(urlText), x.src), x.alt)).ToArray();
                 }
-                // wc.DownloadFile(image.v.AbsoluteUri, savePath);
+
+                // 画像をダウンロード
+                foreach (var image in imageURLs.Select((v, i) => (v, i)))
+                {
+                    using var wc = new WebClient();
+                    var savePath = @$"C:\Users\shimp\Desktop\images\{image.v.uri.LocalPath.Split("/").Last()}";
+                    if (!Directory.Exists(Path.GetDirectoryName(savePath)))
+                    {
+                        //Directory.CreateDirectory(Path.GetDirectoryName(savePath)!);
+                    }
+                    // wc.DownloadFile(image.v.AbsoluteUri, savePath);
+                }
+
+                
+                var fragment = Encoding.UTF8.GetString(Encoding.UTF8.GetBytes(htmlData)[startFragment..endFragment]);
+                var result = fragment + "\n\n" + urlText + "\n\n" + string.Join("\n", imageURLs.Select(x => $"- ![{x.alt}]({x.uri.AbsoluteUri})"));
+                return (result, imageURLs.Select(x => x.uri.AbsoluteUri).ToArray());
             }
 
-            var fragment = Encoding.UTF8.GetString(Encoding.UTF8.GetBytes(htmlData)[startFragment..endFragment]);
-            var result = fragment + "\n\n" + urlText + "\n\n" + string.Join("\n", imageURLs.Select(x => $"- ![{x.LocalPath.Split("/").Last()}]({x.AbsoluteUri})"));
-            return (result, imageURLs.Select(x => x.AbsoluteUri).ToArray());
 
         }
 
@@ -177,7 +194,7 @@ namespace ccliplog
             if (htmlData.Count() == 1)
             {
                 var text = htmlData?.First().Data?.ToString()?.Trim() ?? "";
-                this.PostTextBox.Text += HtmlToText(text);
+                this.PostTextBox.Text += HtmlToText(text).Text;
             }
             else if (textData.Count() == 1)
             {
@@ -205,7 +222,7 @@ namespace ccliplog
             {
                 var files = fileData.First().Data as string[] ?? Array.Empty<string>();
                 this.PostTextBox.Text += string.Join("\n", files);
-                foreach(var file in files)
+                foreach (var file in files.OrderBy(x => x))
                 {
                     if (this.imageExtensions.Contains(Path.GetExtension(file).ToLower()))
                     {
@@ -220,7 +237,7 @@ namespace ccliplog
             }
 
             // 画像の添付
-            var photosData = ClipData.Where(x => x.Format == "Bitmap").Select(x => x.Data);
+            var photosData = imageData.Select(x => x.Data);
             byte[][] photos = Array.Empty<byte[]>();
             if (photosData.Count() == 1)
             {
@@ -271,7 +288,7 @@ namespace ccliplog
 
             // ダウンロードファイルの処理
             var downloadFilePathes = new List<string>();
-            foreach (var (url, index) in this.attachmentURLs.Select((v, i) => (v, i)))
+            foreach (var url in this.attachmentURLs)
             {
                 var client = new WebClient();
                 var urlObj = new Uri(url);
@@ -325,7 +342,7 @@ namespace ccliplog
             var photoNames = new List<string>();
 
             // インデックスのみでループ
-            foreach (var idx in (photos ?? Array.Empty<byte[]>()).Select((v,i) => i))
+            foreach (var idx in (photos ?? Array.Empty<byte[]>()).Select((v, i) => i))
             {
                 var photoID = Journey.CreatePhotoID(id, idx + 1);
                 photoNames.Add(photoID + DefaultImageExt);
@@ -365,7 +382,7 @@ namespace ccliplog
 
             // データ作成
             var photosData = this.attachmentFileData;
-            var photos = new string[] { };
+            var photos = Array.Empty<string>();
             if (photosData.Count == 1)
             {
                 var photo = (byte[]?)photosData.First() ?? Array.Empty<byte>();

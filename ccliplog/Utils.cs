@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Text;
 
 namespace ccliplog
 {
@@ -50,7 +46,7 @@ namespace ccliplog
                     if (b1 == 0x00 && i < len - 1 && bytes[i + 1] <= 0x7F)
                     {
                         //smells like raw unicode
-                        return System.Text.Encoding.Unicode;
+                        return Encoding.Unicode;
                     }
                 }
             }
@@ -72,7 +68,7 @@ namespace ccliplog
             }
             if (notJapanese)
             {
-                return System.Text.Encoding.ASCII;
+                return Encoding.ASCII;
             }
 
             for (int i = 0; i < len - 2; i++)
@@ -87,25 +83,25 @@ namespace ccliplog
                     {
                         //JIS_0208 1978
                         //JIS
-                        return System.Text.Encoding.GetEncoding(50220);
+                        return Encoding.GetEncoding(50220);
                     }
                     else if (b2 == bDollar && b3 == bB)
                     {
                         //JIS_0208 1983
                         //JIS
-                        return System.Text.Encoding.GetEncoding(50220);
+                        return Encoding.GetEncoding(50220);
                     }
                     else if (b2 == bOpen && (b3 == bB || b3 == bJ))
                     {
                         //JIS_ASC
                         //JIS
-                        return System.Text.Encoding.GetEncoding(50220);
+                        return Encoding.GetEncoding(50220);
                     }
                     else if (b2 == bOpen && b3 == bI)
                     {
                         //JIS_KANA
                         //JIS
-                        return System.Text.Encoding.GetEncoding(50220);
+                        return Encoding.GetEncoding(50220);
                     }
                     if (i < len - 3)
                     {
@@ -114,7 +110,7 @@ namespace ccliplog
                         {
                             //JIS_0212
                             //JIS
-                            return System.Text.Encoding.GetEncoding(50220);
+                            return Encoding.GetEncoding(50220);
                         }
                         if (i < len - 5 &&
                             b2 == bAnd && b3 == bAt && b4 == bEscape &&
@@ -122,7 +118,7 @@ namespace ccliplog
                         {
                             //JIS_0208 1990
                             //JIS
-                            return System.Text.Encoding.GetEncoding(50220);
+                            return Encoding.GetEncoding(50220);
                         }
                     }
                 }
@@ -196,21 +192,21 @@ namespace ccliplog
 
             System.Diagnostics.Debug.WriteLine(
                 string.Format("sjis = {0}, euc = {1}, utf8 = {2}", sjis, euc, utf8));
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             if (euc > sjis && euc > utf8)
             {
                 //EUC
-                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-                return System.Text.Encoding.GetEncoding(51932);
+                return Encoding.GetEncoding(51932);
             }
             else if (sjis > euc && sjis > utf8)
             {
                 //SJIS
-                return System.Text.Encoding.GetEncoding(932);
+                return Encoding.GetEncoding(932);
             }
             else if (utf8 > euc && utf8 > sjis)
             {
                 //UTF8
-                return System.Text.Encoding.UTF8;
+                return Encoding.UTF8;
             }
 
             return null;
