@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 
 namespace ccliplog
 {
@@ -212,5 +213,14 @@ namespace ccliplog
             return null;
         }
 
+        public static long ToUnixTime(DateTime dt)
+        {
+            var dto = new DateTimeOffset(dt.Ticks, new TimeSpan(+09, 00, 00));
+            return dto.ToUnixTimeMilliseconds();
+        }
+        public static DateTime FromUnixTime(long unixTime)
+        {
+            return DateTimeOffset.FromUnixTimeSeconds(unixTime).LocalDateTime;
+        }
     }
 }

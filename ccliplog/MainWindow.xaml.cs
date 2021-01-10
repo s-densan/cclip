@@ -1,14 +1,12 @@
 ﻿using cclip_lib;
 using HtmlAgilityPack;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -127,14 +125,22 @@ namespace ccliplog
                 var imageUrlXPath = "(/html/head|/html/body)/meta[@property=\"og:image\"]";
                 var imageUrl = html.DocumentNode.SelectSingleNode(imageUrlXPath)?.GetAttributeValue("content", "") ?? "";
                 var result = "";
-                result += $"## {title}\n\n";
+
+                if (title != "")
+                {
+                    if (url != "")
+                    {
+                        result += $"## [{title}]({url})\n\n";
+                    }
+                    else
+                    {
+                        result += $"## {title}\n\n";
+                    }
+
+                }
                 if (description != "")
                 {
                     result += $"{description}\n\n";
-                }
-                if (imageUrl != "")
-                {
-                    result += $"![]({imageUrl})\n\n";
                 }
                 result += $"---\n\n";
                 if (url != "")
@@ -145,6 +151,12 @@ namespace ccliplog
                 {
                     result += $"- keywords : {keywords}\n";
                 }
+                if (imageUrl != "")
+                {
+                    result += $"- {imageUrl}\n\n";
+                }
+
+                // 結果リターン
                 if (imageUrl != "")
                 {
                     return (result, new string[] { imageUrl });
@@ -161,15 +173,6 @@ namespace ccliplog
             }
         }
 
-        public static long ToUnixTime(DateTime dt)
-        {
-            var dto = new DateTimeOffset(dt.Ticks, new TimeSpan(+09, 00, 00));
-            return dto.ToUnixTimeMilliseconds();
-        }
-        public static DateTime FromUnixTime(long unixTime)
-        {
-            return DateTimeOffset.FromUnixTimeSeconds(unixTime).LocalDateTime;
-        }
         private void PostButton_Click(object sender, RoutedEventArgs e)
         {
             // SaveMemorize();
@@ -280,10 +283,24 @@ namespace ccliplog
             {
                 Directory.CreateDirectory(dirPath);
             }
-            var now = ToUnixTime(DateTime.Now);
+            var now = Utils.ToUnixTime(DateTime.Now);
             // URLからファイルダウンロード
 
-            var jny = CreateJourney(now, this.PostTextBox.Text, this.attachmentFileData);
+            var jny = CreateJourney(now, this.PostTextBox.Text);
+
+            // インデックスのみでループ
+            foreach (var idx in (this.attachmentFileData.ToArray() ?? Array.Empty<byte[]>()))
+            {
+                var photoID = jny.CreatePhotoID(photoNo);
+                jny.photos = jny.photos.Append(photoID + DefaultImageExt).ToArray();
+                photoNo += 1;
+            }
+            foreach (var (photoName, photoData) in jny.photos.Zip(this.attachmentFileData!))
+            {
+                var photoPath = Path.Combine(dirPath, photoName);
+                File.WriteAllBytes(photoPath, photoData);
+            }
+
             jny.tags = TagsTextBox.Text.ToString()?.Split(",").Select(x => x.Trim()).ToArray() ?? Array.Empty<string>();
 
             // ダウンロードファイルの処理
@@ -319,11 +336,6 @@ namespace ccliplog
                 photoNo += 1;
             }
 
-            foreach (var (photoName, photoData) in jny.photos.Zip(this.attachmentFileData!))
-            {
-                var photoPath = Path.Combine(dirPath, photoName);
-                File.WriteAllBytes(photoPath, photoData);
-            }
 
             var jsonOption = new JsonSerializerOptions()
             {
@@ -336,22 +348,9 @@ namespace ccliplog
             File.WriteAllText(filePath, jnyJson);
 
         }
-        static private Journey CreateJourney(long now, string text, IEnumerable<byte[]>? photos, IEnumerable<string>? pathes = null)
+        static private Journey CreateJourney(long now, string text)
         {
             var id = Journey.CreateID(now);
-            var photoNames = new List<string>();
-
-            // インデックスのみでループ
-            foreach (var idx in (photos ?? Array.Empty<byte[]>()).Select((v, i) => i))
-            {
-                var photoID = Journey.CreatePhotoID(id, idx + 1);
-                photoNames.Add(photoID + DefaultImageExt);
-            }
-            // ファイルパスループ
-            foreach (var path in pathes ?? Array.Empty<string>())
-            {
-                photoNames.Add(Path.GetFileName(path));
-            }
             var jny = new Journey()
             {
                 id = id,
@@ -359,7 +358,7 @@ namespace ccliplog
                 preview_text = text,
                 date_journal = now,
                 date_modified = now,
-                photos = photoNames.ToArray(),
+                photos = Array.Empty<string>(),
             };
             return jny;
 
@@ -376,7 +375,7 @@ namespace ccliplog
             {
                 Directory.CreateDirectory(dirPath);
             }
-            var now = ToUnixTime(DateTime.Now);
+            var now = Utils.ToUnixTime(DateTime.Now);
             var filePath = Path.Combine(dirPath, now.ToString()) + ".json";
 
 
