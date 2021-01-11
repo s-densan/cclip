@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -264,22 +265,18 @@ namespace ccliplog
         {
             // 変数定義
             // ファイル作成
-            var dirPath = Properties.Settings.Default.OutputDirPath;
-            var argCount = Environment.GetCommandLineArgs().Length;
+            var dirPath = "";
             var photoNo = 1;
-            if(argCount > 0) { 
-                dirPath = Environment.GetCommandLineArgs()[argCount - 1];
-                if (!Directory.Exists(dirPath))
-                {
-                    Directory.CreateDirectory(dirPath);
-
-                }
-            }
-            else if (dirPath == "")
+            var appPath = Assembly.GetEntryAssembly()?.Location;
+            if (appPath == null)
             {
-                dirPath = Directory.GetCurrentDirectory();
+                return;
             }
-            else if (!Directory.Exists(dirPath))
+            var appDir = Directory.GetParent(appPath)?.FullName ?? "";
+            var config = new Config.Config(Path.Join(new string[] { appDir, "config.json" }));
+            dirPath = config.data.outPath;
+
+            if (!Directory.Exists(dirPath))
             {
                 Directory.CreateDirectory(dirPath);
             }
@@ -308,6 +305,7 @@ namespace ccliplog
             foreach (var url in this.attachmentURLs)
             {
                 var client = new WebClient();
+                if (!Uri.CheckSchemeName(url)) { continue; }
                 var urlObj = new Uri(url);
                 // var urlFileName = urlObj.Segments[^1];
                 var urlFileName = jny.CreatePhotoID(photoNo) + System.IO.Path.GetExtension(urlObj.AbsolutePath.Split("/").Last());
