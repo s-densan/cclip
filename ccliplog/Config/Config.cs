@@ -60,7 +60,10 @@ namespace ccliplog.Config
             }
             else
             {
-                var data = new ConfigData();
+                var data = new ConfigData
+                {
+                    outPath = Directory.GetParent(this.filePath)?.FullName ?? ""
+                };
                 return data;
             }
         }
