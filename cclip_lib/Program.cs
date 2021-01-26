@@ -60,7 +60,7 @@ namespace cclip_lib
             object resultData;
             if (list)
             {
-                resultData = FormatMode(imgFmt);
+                resultData = FormatListMode(imgFmt, outputJson);
             }
             else if(outputJson)
             {
@@ -106,17 +106,25 @@ namespace cclip_lib
             }
 
         }
-        private static string FormatMode(ImageFormat imgFmt)
+        private static string FormatListMode(ImageFormat imgFmt, bool jsonFormat)
         {
             var clipData = GetClipData(imgFmt);
-            var formatsStr = string.Join("\n", clipData.Select(d => d.Format));
-            return formatsStr;
-            /*
-            var dataObj = Clipboard.GetDataObject();
-            var formats = dataObj.GetFormats();
-            var formatsStr = string.Join("\n", formats);
-            return formatsStr;
-            */
+            var formatList = clipData.Select(d => d.Format);
+            if (jsonFormat)
+            {
+                var jsonOption = new JsonSerializerOptions()
+                {
+                    Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+                    WriteIndented = true,
+                };
+                var json = JsonSerializer.Serialize(formatList, jsonOption);
+                return json;
+            }
+            else
+            {
+                var formatsStr = string.Join("\n", formatList);
+                return formatsStr;
+            }
         }
         private static string JsonMode(bool onFilter, ImageFormat imgFmt)
         {
