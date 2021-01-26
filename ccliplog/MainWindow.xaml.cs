@@ -23,6 +23,7 @@ namespace ccliplog
     /// </summary>
     public partial class MainWindow : Window
     {
+        public JournalData journalData;
         public const ImageFormat DefaultImageFormat = ImageFormat.Bmp;
         public const string DefaultImageExt = ".bmp";
         public readonly string[] imageExtensions = new string[] { ".bmp", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif" };
@@ -35,6 +36,8 @@ namespace ccliplog
         public MainWindow()
         {
             InitializeComponent();
+            this.journalData = new JournalData();
+            this.DataContext = this.journalData;
 
             SetFormDataFromClipboarda(DefaultImageFormat);
         }
@@ -104,8 +107,10 @@ namespace ccliplog
         {
             try
             {
-                using var wc = new WebClient();
-                wc.Encoding = Encoding.UTF8;
+                using var wc = new WebClient
+                {
+                    Encoding = Encoding.UTF8
+                };
                 wc.Headers.Add("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3");
                 var bytes = wc.DownloadData(url);
                 var enc = Utils.GetCode(bytes) ?? Encoding.UTF8;
@@ -198,7 +203,8 @@ namespace ccliplog
             if (htmlData.Count() == 1)
             {
                 var text = htmlData?.First().Data?.ToString()?.Trim() ?? "";
-                this.PostTextBox.Text += HtmlToText(text).Text;
+                //this.PostTextBox.Text += HtmlToText(text).Text;
+                this.journalData.Text += HtmlToText(text).Text;
             }
             else if (textData.Count() == 1)
             {
@@ -209,23 +215,27 @@ namespace ccliplog
                     var (resText, resImageUrls) = UrlToText(text);
                     if (resText != "")
                     {
-                        this.PostTextBox.Text += resText;
+                        // this.PostTextBox.Text += resText;
+                        this.journalData.Text += resText;
                     }
                     else
                     {
-                        this.PostTextBox.Text += text + "\n";
+                        // this.PostTextBox.Text += text + "\n";
+                        this.journalData.Text += text + "\n";
                     }
                     this.attachmentURLs.AddRange(resImageUrls);
                 }
                 else
                 {
-                    this.PostTextBox.Text += text + "\n";
+                    // this.PostTextBox.Text += text + "\n";
+                    this.journalData.Text += text + "\n";
                 }
             }
             else if (fileData.Count() == 1)
             {
                 var files = fileData.First().Data as string[] ?? Array.Empty<string>();
-                this.PostTextBox.Text += string.Join("\n", files);
+                // this.PostTextBox.Text += string.Join("\n", files);
+                this.journalData.Text += string.Join("\n", files);
                 foreach (var file in files.OrderBy(x => x))
                 {
                     if (this.imageExtensions.Contains(Path.GetExtension(file).ToLower()))
@@ -283,7 +293,8 @@ namespace ccliplog
             var now = Utils.ToUnixTime(DateTime.Now);
             // URLからファイルダウンロード
 
-            var jny = CreateJourney(now, this.PostTextBox.Text);
+            // var jny = CreateJourney(now, this.PostTextBox.Text);
+            var jny = CreateJourney(now, this.journalData.Text);
 
             // インデックスのみでループ
             foreach (var idx in (this.attachmentFileData.ToArray() ?? Array.Empty<byte[]>()))
@@ -389,7 +400,8 @@ namespace ccliplog
             }
             var memo = new Memorize()
             {
-                text = this.PostTextBox.Text,
+                // text = this.PostTextBox.Text,
+                text = this.journalData.Text,
                 createdDate = now,
                 photos = photos,
 
