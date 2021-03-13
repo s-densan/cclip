@@ -405,7 +405,7 @@ namespace ccliplog
             foreach (var url in this.attachmentURLs)
             {
                 var client = new WebClient();
-                if (!Uri.CheckSchemeName(url)) { continue; }
+                if (!Uri.IsWellFormedUriString(url, UriKind.Absolute)) { continue; }
                 var urlObj = new Uri(url);
                 // var urlFileName = urlObj.Segments[^1];
                 var urlFileName = jny.CreatePhotoID(photoNo) + System.IO.Path.GetExtension(urlObj.AbsolutePath.Split("/").Last());
