@@ -9,6 +9,7 @@ namespace ccliplog
 {
     class Memorize
     {
+#pragma warning disable IDE1006 // 命名スタイル
         public string? address { get; set; } = "";
         public string[] audio {get;set;}= Array.Empty<string>();
         public long createdDate {get;set;}= 0;
@@ -26,5 +27,6 @@ namespace ccliplog
         public string text {get;set;}= "";
         public string? weatherCode {get;set;}= null;
         public string? weatherDescription {get;set;}= null;
+#pragma warning restore IDE1006 // 命名スタイル
     }
 }

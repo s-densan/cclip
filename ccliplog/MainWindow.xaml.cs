@@ -24,15 +24,15 @@ namespace ccliplog
     public partial class MainWindow : Window
     {
         public JournalData journalData;
-        public const ImageFormat DefaultImageFormat = ImageFormat.Bmp;
-        public const string DefaultImageExt = ".bmp";
+        public const ImageFormat DefaultImageFormat = ImageFormat.Png;
+        public const string DefaultImageExt = ".png";
         public readonly string[] imageExtensions = new string[] { ".bmp", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif" };
         public readonly string[] audioExtensions = new string[] { ".mp3", ".wav", ".acc", ".m4a", ".ogg", ".wma" };
         public readonly string[] videoExtensions = new string[] { ".mp4", ".mkv", ".wmv", ".avi", ".mpg", ".mpeg" };
-        public List<string> attachmentURLs = new List<string>();
-        public List<string> attachmentFilePathes = new List<string>();
-        public List<byte[]> attachmentFileData = new List<byte[]>();
-        public List<string> attachmentUrls = new List<string>();
+        public List<string> attachmentURLs = new();
+        public List<string> attachmentFilePathes = new();
+        public List<byte[]> attachmentFileData = new();
+        public List<string> attachmentUrls = new();
         public MainWindow()
         {
             InitializeComponent();
@@ -192,6 +192,7 @@ namespace ccliplog
         }
         private void SetFormDataFromClipboarda(ImageFormat imgFmt)
         {
+            // var ClipData = Program.GetClipData(imgFmt);
             var ClipData = Program.GetClipData(imgFmt);
             var textData = ClipData.Where(x => x.Format == "Text");
             var imageData = ClipData.Where(x => x.Format == "Bitmap");
@@ -259,9 +260,9 @@ namespace ccliplog
             }
             photos.ToList().ForEach(x => this.attachmentFileData.Add(x));
 
-            if (this.attachmentFileData.Count() > 0)
+            if (this.attachmentFileData.Count > 0)
             {
-                this.AttachFileLabel.Content = $"画像の添付ファイルが{this.attachmentFileData.Count()}件あります。";
+                this.AttachFileLabel.Content = $"画像の添付ファイルが{this.attachmentFileData.Count}件あります。";
             }
             else
             {
@@ -271,6 +272,94 @@ namespace ccliplog
         }
 
 
+        private void SaveMDJournal()
+        {
+            // 変数定義
+            // ファイル作成
+            var dirPath = "";
+            var photoNo = 1;
+            var appPath = Assembly.GetEntryAssembly()?.Location;
+            if (appPath == null)
+            {
+                return;
+            }
+            var appDir = Directory.GetParent(appPath)?.FullName ?? "";
+            var config = new Config.Config(Path.Join(new string[] { appDir, "config.json" }));
+            dirPath = config.data.outPath;
+
+            if (!Directory.Exists(dirPath))
+            {
+                Directory.CreateDirectory(dirPath);
+            }
+            var now = Utils.ToUnixTime(DateTime.Now);
+            // URLからファイルダウンロード
+
+            // var jny = CreateJourney(now, this.PostTextBox.Text);
+            var jny = CreateJourney(now, this.journalData.Text);
+            var mdJnl = CreateMDJournal(now, this.journalData.Text, "");
+
+            jny.tags = TagsTextBox.Text.ToString()?.Split(",").Select(x => x.Trim()).ToArray() ?? Array.Empty<string>();
+
+            // ダウンロードファイルの処理
+            var downloadFilePathes = new List<string>();
+            foreach (var url in this.attachmentURLs)
+            {
+                var client = new WebClient();
+                if (!Uri.CheckSchemeName(url)) { continue; }
+                var urlObj = new Uri(url);
+                // var urlFileName = urlObj.Segments[^1];
+                var urlFileName = jny.CreatePhotoID(photoNo) + System.IO.Path.GetExtension(urlObj.AbsolutePath.Split("/").Last());
+                var savePath = Path.Join(dirPath, urlFileName);
+                try
+                {
+                    client.DownloadFile(url, savePath);
+                    downloadFilePathes.Add(urlFileName);
+                    photoNo += 1;
+                }
+                catch (Exception e)
+                {
+                    MessageBox.Show($"ダウンロードできませんでした。\n{e}");
+
+                }
+            }
+            jny.photos = jny.photos.ToList().Concat(downloadFilePathes.ToArray()).ToArray();
+
+            // クリップボードから追加した画像の作成
+            // インデックスのみでループ
+            foreach (var idx in (this.attachmentFileData.ToArray() ?? Array.Empty<byte[]>()))
+            {
+                var photoID = jny.CreatePhotoID(photoNo);
+                jny.photos = jny.photos.Append(photoID + DefaultImageExt).ToArray();
+                photoNo += 1;
+            }
+            foreach (var (photoName, photoData) in jny.photos.Zip(this.attachmentFileData!))
+            {
+                var photoPath = Path.Combine(dirPath, photoName);
+                File.WriteAllBytes(photoPath, photoData);
+            }
+            // 添付ファイルの処理
+            foreach (var attachmentFilePath in this.attachmentFilePathes)
+            {
+                var filename = jny.CreatePhotoID(photoNo) + Path.GetExtension(attachmentFilePath);
+                var savePath = Path.Join(dirPath, filename);
+                File.Copy(attachmentFilePath, savePath);
+                jny.photos = jny.photos.ToList().Append(filename).ToArray();
+                photoNo += 1;
+            }
+
+
+
+            var jsonOption = new JsonSerializerOptions()
+            {
+                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+                WriteIndented = true,
+            };
+            var filePath = Path.Combine(dirPath, jny.id) + ".json";
+            var jnyJson = System.Text.Json.JsonSerializer.Serialize(jny, jsonOption);
+
+            File.WriteAllText(filePath, jnyJson);
+
+        }
         private void SaveJourney()
         {
             // 変数定義
@@ -357,9 +446,27 @@ namespace ccliplog
             File.WriteAllText(filePath, jnyJson);
 
         }
+        static private MDJournal CreateMDJournal(long now, string text, string source)
+        {
+            var mdJnl = new MDJournal
+            {
+                meta = new MDJournalMeta
+                {
+                    createdAt = new DateTime(now),
+                    updatedAt = new DateTime(now)
+                },
+                contents = text,
+                source = "",
+            };
+            mdJnl.meta.keys["mdjournal"] = MDJournal.CreateID(mdJnl.meta.createdAt.Value, "CCL");
+            mdJnl.meta.keys["journey"] = Journey.CreateID(now, 1);
+
+            return mdJnl;
+
+        }
         static private Journey CreateJourney(long now, string text)
         {
-            var id = Journey.CreateID(now);
+            var id = Journey.CreateID(now, 1);
             var jny = new Journey()
             {
                 id = id,

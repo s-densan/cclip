@@ -1,13 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ccliplog
 {
     class Journey
     {
+#pragma warning disable IDE1006 // 命名スタイル
         public string id { get; set; } = "";
         public long date_modified { get; set; } = 0;
         public long date_journal { get; set; } = 0;
@@ -25,31 +22,20 @@ namespace ccliplog
         public string music_title { get; set; } = "";
         public string music_artist { get; set; } = "";
         public string[] photos { get; set; } = Array.Empty<string>();
-        public JourneyWeather weather { get; set; } = new JourneyWeather();
-        public string[] tags { get; set; } = new string[] { };
+        public JourneyWeather weather { get; set; } = new();
+        public string[] tags { get; set; } = Array.Empty<string>();
         public string type { get; set; } = "markdown";
+#pragma warning restore IDE1006 // 命名スタイル
 
         /// <summary>
         /// ID生成
         /// </summary>
         /// <param name="date"></param>
         /// <returns></returns>
-        public static string CreateID(long date)
+        public static string CreateID(long date, int num)
         {
-            var id = date.ToString() + "-" + GetRandomHexNumber(16).ToLower();
+            var id = date.ToString() + "-" + num.ToString("D16");
             return id;
-        }
-        private static string GetRandomHexNumber(int digits)
-        {
-            var buffer = new byte[digits / 2];
-            var rand = new Random();
-            rand.NextBytes(buffer);
-            var result = string.Concat(buffer.Select(x => x.ToString("X2")).ToArray());
-            if (digits % 2 == 0)
-            {
-                return result;
-            }
-            return result + rand.Next(16).ToString("X");
         }
         public string CreatePhotoID(int no)
         {
@@ -57,17 +43,19 @@ namespace ccliplog
         }
         public static string CreatePhotoID(string journeyID, int no)
         {
-            var photoID = $"{journeyID}-{no:X16}";
+            var photoID = $"{journeyID}-{no:D16}";
             return photoID;
         }
     }
     class JourneyWeather
     {
-       public int id { get; set; } = -1;
+#pragma warning disable IDE1006 // 命名スタイル
+        public int id { get; set; } = -1;
         public double? degree_c { get; set; } = double.MaxValue;
         public string description { get; set; } = "";
         public string icon { get; set; } = "";
         public string place { get; set; } = "";
+#pragma warning restore IDE1006 // 命名スタイル
 
     }
 }

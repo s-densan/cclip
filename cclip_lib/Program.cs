@@ -35,9 +35,24 @@ namespace cclip_lib
             this.Data = data;
         }
     }
+//    public static class ImageFormatTools
+//    {
+//        public static string ToString(this ImageFormat imgFmt)
+//        {
+//            return imgFmt switch
+//            {
+//                ImageFormat.Bmp => "Bitmap",
+//                ImageFormat.Png => "Png",
+//                ImageFormat.Jpeg => "Jpg",
+//                ImageFormat.Gif => "Gif",
+//                _ => "",
+//            };
+//        }
+//    }
 
     public class Program
     {
+
         public static void Main(bool list, bool all, bool outputJson, string clipboardFormat, string output, string imageFormatStr )
         {
             // 出力パス
@@ -179,6 +194,45 @@ namespace cclip_lib
                 return null;
             }
         }
+//        /// <summary>
+//        /// クリップボードからデータを取得し、一般的な形式に直してリターンする。
+//        /// </summary>
+//        /// <returns></returns>
+//        public static ClipData[] GetClipData(IEnumerable<ImageFormat> imgFmts)
+//        {
+//            var dataObj = Clipboard.GetDataObject();
+//            var formats = dataObj.GetFormats();
+//            foreach(var imgFmt in imgFmts)
+//            {
+//                if(!formats.Select(x=>x.ToLower()).Contains(imgFmt.ToString().ToLower())){
+//                    continue;
+//                }
+//                ClipData getData(string f)
+//                {
+//                    try
+//                    {
+//                        object data = Clipboard.GetData(f);
+//                        if (data != null)
+//                        {
+//                            Clipboard.GetImage();
+//                            return new ClipData(f, data, ConvertDataForOutput(data, imgFmt));
+//                        }
+//                        else
+//                        {
+//                            return new ClipData(f, null, null);
+//                        }
+//                    }
+//                    catch (COMException)
+//                    {
+//                        return new ClipData(f, null, null);
+//                    }
+//                }
+//                var clipDict = formats.Select((f) => getData(f)).Where(f => f.Source != null);
+//                return clipDict.ToArray();
+//            }
+//            return null;
+//
+//        }
         /// <summary>
         /// クリップボードからデータを取得し、一般的な形式に直してリターンする。
         /// </summary>
@@ -292,7 +346,7 @@ namespace cclip_lib
         }
         static string ToXml(IEnumerable<ClipData> data)
         {
-            var clipList = new XmlData[] { };
+            var clipList = Array.Empty<XmlData>();
             foreach (var clipData in data)
             {
                 var oneData = new XmlData()
@@ -305,12 +359,10 @@ namespace cclip_lib
             }
             var xmlData = new XmlData2() { ClipList = clipList };
             var serializer = new XmlSerializer(typeof(XmlData2));
-            using (var stream = new MemoryStream())
-            {
-                serializer.Serialize(stream, xmlData);
-                var result = stream.ToArray();
-                return Encoding.UTF8.GetString(stream.ToArray());
-            }
+            using var stream = new MemoryStream();
+            serializer.Serialize(stream, xmlData);
+            var result = stream.ToArray();
+            return Encoding.UTF8.GetString(stream.ToArray());
         }
     }
 }
