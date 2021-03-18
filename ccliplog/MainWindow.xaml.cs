@@ -15,6 +15,9 @@ using System.Text.RegularExpressions;
 using System.Text.Unicode;
 using System.Windows;
 using Path = System.IO.Path;
+using System.Drawing;
+using System.Runtime.InteropServices;
+
 
 namespace ccliplog
 {
@@ -55,7 +58,7 @@ namespace ccliplog
             // HTML文字列を分析
             html.LoadHtml(htmlData);
 
-            if(html.DocumentNode.SelectNodes("/html/body/*").Count == 1 &&
+            if (html.DocumentNode.SelectNodes("/html/body/*").Count == 1 &&
                html.DocumentNode.SelectSingleNode("/html/body/*").Name.ToLower() == "img")
             {
                 // 画像のみの場合
@@ -94,7 +97,7 @@ namespace ccliplog
                     // wc.DownloadFile(image.v.AbsoluteUri, savePath);
                 }
 
-                
+
                 var fragment = Encoding.UTF8.GetString(Encoding.UTF8.GetBytes(htmlData)[startFragment..endFragment]);
                 var result = fragment + "\n\n" + urlText + "\n\n" + string.Join("\n", imageURLs.Select(x => $"- ![{x.alt}]({x.uri.AbsoluteUri})"));
                 return (result, imageURLs.Select(x => x.uri.AbsoluteUri).ToArray());
@@ -190,12 +193,44 @@ namespace ccliplog
         {
             SetFormDataFromClipboarda(DefaultImageFormat);
         }
+        private static MemoryStream? CreateBitmapFromDIB(byte[] bin)
+        {
+            var BITMAPFILEHEADER_SIZE = 14;
+            var headerSize = BitConverter.ToInt32(bin, 0);
+
+            // var pixelSize = bin.Length - headerSize;
+
+            var fileSize = BITMAPFILEHEADER_SIZE + bin.Length;
+
+
+            var bmpStm = new MemoryStream(fileSize);
+
+            var writer = new BinaryWriter(bmpStm);
+            // --- Bitmap File Header ---
+            writer.Write(Encoding.ASCII.GetBytes("BM")); // Type
+
+            writer.Write(fileSize); // Size
+            writer.Write("00"); // reserved1,reserved2
+            writer.Write(BITMAPFILEHEADER_SIZE + headerSize); // OffBits
+                                                              // --- DIB ---
+            writer.Write(bin);
+            writer.Flush();
+
+            bmpStm.Seek(0, SeekOrigin.Begin);
+            return bmpStm;
+        }
+        private static MemoryStream? CreateBitmapFromDIB(MemoryStream dib) {
+
+        　　var bin = dib.ToArray();
+            return CreateBitmapFromDIB(bin);
+        }
         private void SetFormDataFromClipboarda(ImageFormat imgFmt)
         {
             // var ClipData = Program.GetClipData(imgFmt);
             var ClipData = Program.GetClipData(imgFmt);
             var textData = ClipData.Where(x => x.Format == "Text");
             var imageData = ClipData.Where(x => x.Format == "Bitmap");
+            var imageByteData = ClipData.Where(x => x.Format == "DeviceIndependentBitmap").Select(x=>CreateBitmapFromDIB((byte[])(x.Data)));
             var fileData = ClipData.Where(x => x.Format == "FileDrop");
             var htmlData = ClipData.Where(x => x.Format == "HTML Format");
             this.TagsTextBox.Text = $"ccliplog, {Environment.MachineName}";
@@ -252,9 +287,9 @@ namespace ccliplog
             }
 
             // 画像の添付
-            var photosData = imageData.Select(x => x.Data);
+            var photosData = (imageData).Select(x => x.Data).Concat(imageByteData);
             byte[][] photos = Array.Empty<byte[]>();
-            if (photosData.Count() == 1)
+            if (photosData.Count() >= 1)
             {
                 photos = new byte[][] { (byte[]?)photosData.First() ?? Array.Empty<byte>() };
             }

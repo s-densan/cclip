@@ -247,8 +247,9 @@ namespace cclip_lib
                     object data = Clipboard.GetData(f);
                     if (data != null)
                     {
-                        Clipboard.GetImage();
-                        return new ClipData(f, data, ConvertDataForOutput(data, imgFmt));
+                        // Clipboard.GetImage();
+                        var outputData = ConvertDataForOutput(data, imgFmt);
+                        return new ClipData(f, data, outputData);
                     }
                     else
                     {
@@ -268,7 +269,7 @@ namespace cclip_lib
 
         /// <summary>
         /// クリップボードから取得したデータを、一般的な形式
-        /// （文字列・バイト列・文字列の配列）に変換し、CぃｐDataオブジェクトとして
+        /// （文字列・バイト列・文字列の配列）に変換し、ClipDataオブジェクトとして
         /// リターンする。
         /// </summary>
         /// <param name="sourceData"></param>
