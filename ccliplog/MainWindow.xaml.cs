@@ -230,7 +230,7 @@ namespace ccliplog
             var ClipData = Program.GetClipData(imgFmt);
             var textData = ClipData.Where(x => x.Format == "Text");
             var imageData = ClipData.Where(x => x.Format == "Bitmap");
-            var imageByteData = ClipData.Where(x => x.Format == "DeviceIndependentBitmap").Select(x=>CreateBitmapFromDIB((byte[])(x.Data)));
+            var imageByteData = ClipData.Where(x => x.Format == "DeviceIndependentBitmap").Select(x=>CreateBitmapFromDIB((byte[])(x.Data!)));
             var fileData = ClipData.Where(x => x.Format == "FileDrop");
             var htmlData = ClipData.Where(x => x.Format == "HTML Format");
             this.TagsTextBox.Text = $"ccliplog, {Environment.MachineName}";
@@ -287,9 +287,9 @@ namespace ccliplog
             }
 
             // 画像の添付
-            var photosData = (imageData).Select(x => x.Data).Concat(imageByteData);
+            var photosData = imageData.Select(x => x.Data).Concat(imageByteData);
             byte[][] photos = Array.Empty<byte[]>();
-            if (photosData.Count() >= 1)
+            if (photosData.Any())
             {
                 photos = new byte[][] { (byte[]?)photosData.First() ?? Array.Empty<byte>() };
             }
@@ -420,21 +420,6 @@ namespace ccliplog
             // var jny = CreateJourney(now, this.PostTextBox.Text);
             var jny = CreateJourney(now, this.journalData.Text);
 
-            // インデックスのみでループ
-            foreach (var idx in (this.attachmentFileData.ToArray() ?? Array.Empty<byte[]>()))
-            {
-                var photoID = jny.CreatePhotoID(photoNo);
-                jny.photos = jny.photos.Append(photoID + DefaultImageExt).ToArray();
-                photoNo += 1;
-            }
-            foreach (var (photoName, photoData) in jny.photos.Zip(this.attachmentFileData!))
-            {
-                var photoPath = Path.Combine(dirPath, photoName);
-                File.WriteAllBytes(photoPath, photoData);
-            }
-
-            jny.tags = TagsTextBox.Text.ToString()?.Split(",").Select(x => x.Trim()).ToArray() ?? Array.Empty<string>();
-
             // ダウンロードファイルの処理
             var downloadFilePathes = new List<string>();
             foreach (var url in this.attachmentURLs)
@@ -457,7 +442,22 @@ namespace ccliplog
 
                 }
             }
+
             jny.photos = jny.photos.ToList().Concat(downloadFilePathes.ToArray()).ToArray();
+            // インデックスのみでループ
+            foreach (var idx in (this.attachmentFileData.ToArray() ?? Array.Empty<byte[]>()))
+            {
+                var photoID = jny.CreatePhotoID(photoNo);
+                jny.photos = jny.photos.Append(photoID + DefaultImageExt).ToArray();
+                photoNo += 1;
+            }
+            foreach (var (photoName, photoData) in jny.photos.Zip(this.attachmentFileData!))
+            {
+                var photoPath = Path.Combine(dirPath, photoName);
+                File.WriteAllBytes(photoPath, photoData);
+            }
+
+
 
             // 添付ファイルの処理
             foreach (var attachmentFilePath in this.attachmentFilePathes)
@@ -469,6 +469,7 @@ namespace ccliplog
                 photoNo += 1;
             }
 
+            jny.tags = TagsTextBox.Text.ToString()?.Split(",").Select(x => x.Trim()).ToArray() ?? Array.Empty<string>();
 
             var jsonOption = new JsonSerializerOptions()
             {
