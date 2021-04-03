@@ -193,7 +193,7 @@ namespace ccliplog
         {
             SetFormDataFromClipboarda(DefaultImageFormat);
         }
-        private static MemoryStream? CreateBitmapFromDIB(byte[] bin)
+        private static byte[]? CreateBitmapFromDIB(byte[] bin)
         {
             var BITMAPFILEHEADER_SIZE = 14;
             var headerSize = BitConverter.ToInt32(bin, 0);
@@ -217,9 +217,9 @@ namespace ccliplog
             writer.Flush();
 
             bmpStm.Seek(0, SeekOrigin.Begin);
-            return bmpStm;
+            return bmpStm.ToArray();
         }
-        private static MemoryStream? CreateBitmapFromDIB(MemoryStream dib) {
+        private static byte[]? CreateBitmapFromDIB(MemoryStream dib) {
 
         　　var bin = dib.ToArray();
             return CreateBitmapFromDIB(bin);
@@ -428,7 +428,8 @@ namespace ccliplog
                 if (!Uri.IsWellFormedUriString(url, UriKind.Absolute)) { continue; }
                 var urlObj = new Uri(url);
                 // var urlFileName = urlObj.Segments[^1];
-                var urlFileName = jny.CreatePhotoID(photoNo) + System.IO.Path.GetExtension(urlObj.AbsolutePath.Split("/").Last());
+                var urlFileExt = System.IO.Path.GetExtension(urlObj.AbsolutePath.Split("/").Last());
+                var urlFileName = jny.CreatePhotoID(photoNo) + (urlFileExt == "" ? ".jpg": urlFileExt);
                 var savePath = Path.Join(dirPath, urlFileName);
                 try
                 {
@@ -445,16 +446,19 @@ namespace ccliplog
 
             jny.photos = jny.photos.ToList().Concat(downloadFilePathes.ToArray()).ToArray();
             // インデックスのみでループ
+            var attachFileNameList = new List<string>();
             foreach (var idx in (this.attachmentFileData.ToArray() ?? Array.Empty<byte[]>()))
             {
                 var photoID = jny.CreatePhotoID(photoNo);
-                jny.photos = jny.photos.Append(photoID + DefaultImageExt).ToArray();
+                // jny.photos = jny.photos.Append(photoID + DefaultImageExt).ToArray();
+                attachFileNameList.Add(photoID + DefaultImageExt);
                 photoNo += 1;
             }
-            foreach (var (photoName, photoData) in jny.photos.Zip(this.attachmentFileData!))
+            foreach (var (photoName, photoData) in attachFileNameList.Zip(this.attachmentFileData!))
             {
                 var photoPath = Path.Combine(dirPath, photoName);
                 File.WriteAllBytes(photoPath, photoData);
+                jny.photos = jny.photos.Append(photoName).ToArray();
             }
 
 
