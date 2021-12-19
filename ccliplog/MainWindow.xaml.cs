@@ -576,5 +576,27 @@ namespace ccliplog
             Process.Start(cmd);
 
         }
+
+        private void PasteClipboardAsQuoteButton_Click(object sender, RoutedEventArgs e)
+        {
+            var imgFmt = DefaultImageFormat;
+            var ClipData = Program.GetClipData(imgFmt);
+            var textData = ClipData.Where(x => x.Format == "Text");
+            var htmlData = ClipData.Where(x => x.Format == "HTML Format");
+            this.TagsTextBox.Text = $"ccliplog, {Environment.MachineName}";
+
+            // テキストボックス
+            if (textData.Count() == 1)
+            {
+                var text = textData?.First().Data?.ToString()?.Trim() ?? "";
+                var quoteText = String.Join("\n", text.Split("\n").Select(x => "> " + x));
+                this.journalData.Text += "\n" + quoteText;
+            }
+            else
+            {
+                // do nothing
+            }
+
+        }
     }
 }
